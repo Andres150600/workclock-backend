@@ -4,8 +4,9 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js'
 
 const router = Router()
 
-// GET /ausencias
+// GET /ausencias  — soporta ?estado=aprobada&desde=YYYY-MM-DD&hasta=YYYY-MM-DD
 router.get('/', requireAuth, async (req, res) => {
+  const { estado, desde, hasta } = req.query
   let q = sb.from('ausencias')
     .select('id,tipo,desde,hasta,motivo,estado,created_at,empleados(nombre)')
     .order('created_at', { ascending: false })
@@ -13,6 +14,9 @@ router.get('/', requireAuth, async (req, res) => {
   if (!req.user.es_admin) {
     q = q.eq('empleado_id', req.user.id)
   }
+  if (estado) q = q.eq('estado', estado)
+  if (desde) q = q.gte('desde', desde)
+  if (hasta) q = q.lte('hasta', hasta)
 
   const { data, error } = await q
   if (error) return res.status(500).json({ error: error.message })
