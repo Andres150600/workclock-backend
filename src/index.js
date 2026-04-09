@@ -12,7 +12,14 @@ import documentosRoutes from './routes/documentos.js'
 
 const app = express()
 
-app.use(cors({ origin: process.env.FRONTEND_URL || '*' }))
+const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map(o => o.trim()).filter(Boolean)
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true)
+    if (allowedOrigins.some(o => origin === o || origin.endsWith('.vercel.app'))) return cb(null, true)
+    cb(new Error('CORS no permitido'))
+  }
+}))
 app.use(express.json())
 
 app.use('/auth', authRoutes)
