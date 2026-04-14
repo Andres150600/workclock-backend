@@ -12,11 +12,11 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Faltan campos obligatorios' })
   }
 
-  // Buscar empleado por nombre (insensible a mayúsculas)
+  // Buscar empleado por username (insensible a mayúsculas)
   const { data: emp } = await sb
     .from('empleados')
     .select('id,nombre,email,rol,departamento,cargo,es_admin,activo,dias_vacaciones,dias_usados,pin')
-    .ilike('nombre', nombre.trim())
+    .ilike('username', nombre.trim())
     .eq('activo', true)
     .maybeSingle()
 
