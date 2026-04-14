@@ -10,6 +10,8 @@ import empleadosRoutes from './routes/empleados.js'
 import turnosRoutes from './routes/turnos.js'
 import informesRoutes from './routes/informes.js'
 import documentosRoutes from './routes/documentos.js'
+import pausasRoutes from './routes/pausas.js'
+import fichajesManualesRoutes from './routes/fichajesManuales.js'
 
 const app = express()
 app.use(helmet())
@@ -31,6 +33,8 @@ app.use('/empleados', empleadosRoutes)
 app.use('/turnos', turnosRoutes)
 app.use('/informes', informesRoutes)
 app.use('/documentos', documentosRoutes)
+app.use('/pausas', pausasRoutes)
+app.use('/fichajes-manuales', fichajesManualesRoutes)
 
 app.get('/health', (_, res) => res.json({ ok: true }))
 
