@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 
 import authRoutes from './routes/auth.js'
 import fichajesRoutes from './routes/fichajes.js'
@@ -11,6 +12,7 @@ import informesRoutes from './routes/informes.js'
 import documentosRoutes from './routes/documentos.js'
 
 const app = express()
+app.use(helmet())
 
 const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map(o => o.trim()).filter(Boolean)
 app.use(cors({
@@ -20,7 +22,7 @@ app.use(cors({
     cb(new Error('CORS no permitido'))
   }
 }))
-app.use(express.json())
+app.use(express.json({ limit: '20kb' }))
 
 app.use('/auth', authRoutes)
 app.use('/fichajes', fichajesRoutes)

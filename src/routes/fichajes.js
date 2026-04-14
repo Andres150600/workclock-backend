@@ -7,9 +7,13 @@ const router = Router()
 // GET /fichajes  — admin ve todos, empleado ve los suyos
 router.get('/', requireAuth, async (req, res) => {
   const { empleado_id, fecha } = req.query
+  const page = Math.max(0, parseInt(req.query.page) || 0)
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50))
+
   let q = sb.from('fichajes')
     .select('id,empleado_id,fecha,entrada,salida,created_at,empleados(nombre)')
     .order('created_at', { ascending: false })
+    .range(page * limit, page * limit + limit - 1)
 
   if (req.user.es_admin) {
     if (empleado_id) q = q.eq('empleado_id', empleado_id)
@@ -38,6 +42,14 @@ router.post('/', requireAuth, async (req, res) => {
 // PATCH /fichajes/:id  — registrar salida
 router.patch('/:id', requireAuth, async (req, res) => {
   const { salida, lat_salida, lng_salida } = req.body
+  if (!salida) return res.status(400).json({ error: 'Falta la hora de salida' })
+
+  // Verificar que salida > entrada
+  const { data: existing } = await sb.from('fichajes').select('entrada').eq('id', req.params.id).single()
+  if (existing && new Date(salida) <= new Date(existing.entrada)) {
+    return res.status(400).json({ error: 'La salida debe ser posterior a la entrada' })
+  }
+
   const datos = { salida }
   if (lat_salida != null) { datos.lat_salida = lat_salida; datos.lng_salida = lng_salida }
 

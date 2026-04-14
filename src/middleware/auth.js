@@ -1,12 +1,16 @@
 import jwt from 'jsonwebtoken'
+import { sb } from '../config/supabase.js'
 
-export function requireAuth(req, res, next) {
+export async function requireAuth(req, res, next) {
   const header = req.headers.authorization
   if (!header?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'No autorizado' })
   }
   try {
-    req.user = jwt.verify(header.slice(7), process.env.JWT_SECRET)
+    const payload = jwt.verify(header.slice(7), process.env.JWT_SECRET)
+    const { data: emp } = await sb.from('empleados').select('id,activo').eq('id', payload.id).single()
+    if (!emp || !emp.activo) return res.status(401).json({ error: 'Cuenta desactivada' })
+    req.user = payload
     next()
   } catch {
     res.status(401).json({ error: 'Token inválido o expirado' })

@@ -6,10 +6,12 @@ const router = Router()
 
 // GET /turnos
 router.get('/', requireAuth, async (req, res) => {
-  const { data, error } = await sb.from('turnos')
+  let q = sb.from('turnos')
     .select('id,nombre,hora_entrada,hora_salida,dias_semana,empleados(nombre)')
     .eq('activo', true)
     .order('created_at', { ascending: false })
+  if (!req.user.es_admin) q = q.eq('empleado_id', req.user.id)
+  const { data, error } = await q
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)
 })
