@@ -5,10 +5,10 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js'
 
 const router = Router()
 
-// GET /empleados  — admin ve todos, empleado ve solo sus datos
+// GET /empleados  — admin ve todos con su turno asignado
 router.get('/', requireAdmin, async (req, res) => {
   const { data, error } = await sb.from('empleados')
-    .select('id,nombre,email,cargo,departamento,activo,dias_vacaciones,dias_usados')
+    .select('id,nombre,email,cargo,departamento,activo,dias_vacaciones,dias_usados,turno_id')
     .eq('es_admin', false)
     .eq('activo', true)
     .order('nombre')
@@ -41,6 +41,17 @@ router.post('/', requireAdmin, async (req, res) => {
     .select('id,nombre,email,cargo,departamento').single()
   if (error) return res.status(500).json({ error: error.message })
   res.status(201).json(data)
+})
+
+// PATCH /empleados/:id/turno  — admin asigna jornada a empleado
+router.patch('/:id/turno', requireAdmin, async (req, res) => {
+  const { turno_id } = req.body
+  const { data, error } = await sb.from('empleados')
+    .update({ turno_id: turno_id || null })
+    .eq('id', req.params.id)
+    .select('id,nombre,turno_id').single()
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data)
 })
 
 // DELETE /empleados/:id  — admin desactiva empleado
