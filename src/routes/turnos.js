@@ -29,6 +29,20 @@ router.post('/', requireAdmin, async (req, res) => {
   res.status(201).json(data)
 })
 
+// PATCH /turnos/:id  — admin edita turno
+router.patch('/:id', requireAdmin, async (req, res) => {
+  const { nombre, empleado_id, hora_entrada, hora_salida, dias_semana } = req.body
+  const datos = {}
+  if (nombre)      datos.nombre      = nombre
+  if (empleado_id) datos.empleado_id = empleado_id
+  if (hora_entrada) datos.hora_entrada = hora_entrada
+  if (hora_salida)  datos.hora_salida  = hora_salida
+  if (dias_semana)  datos.dias_semana  = dias_semana
+  const { data, error } = await sb.from('turnos').update(datos).eq('id', req.params.id).select().single()
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data)
+})
+
 // DELETE /turnos/:id  — admin elimina turno
 router.delete('/:id', requireAdmin, async (req, res) => {
   const { error } = await sb.from('turnos')
