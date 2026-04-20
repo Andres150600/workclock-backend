@@ -28,7 +28,7 @@ router.get('/me', requireAuth, async (req, res) => {
 
 // POST /empleados  — admin crea empleado
 router.post('/', requireAdmin, async (req, res) => {
-  const { nombre, email, cargo, departamento, pin, dias_vacaciones = 22 } = req.body
+  const { nombre, email, cargo, departamento, pin, dias_vacaciones = 25, turno_id } = req.body
   if (!nombre || !email || !pin) {
     return res.status(400).json({ error: 'Nombre, email y PIN son obligatorios' })
   }
@@ -36,9 +36,9 @@ router.post('/', requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'El PIN debe tener al menos 4 caracteres' })
   }
   const hash = await bcrypt.hash(pin, 10)
-  const { data, error } = await sb.from('empleados')
-    .insert({ nombre, email, cargo, departamento, pin: hash, es_admin: false, rol: 'empleado', activo: true, dias_vacaciones, dias_usados: 0 })
-    .select('id,nombre,email,cargo,departamento').single()
+  const row = { nombre, email, cargo, departamento, pin: hash, es_admin: false, rol: 'empleado', activo: true, dias_vacaciones, dias_usados: 0 }
+  if (turno_id) row.turno_id = turno_id
+  const { data, error } = await sb.from('empleados').insert(row).select('id,nombre,email,cargo,departamento,turno_id').single()
   if (error) return res.status(500).json({ error: error.message })
   res.status(201).json(data)
 })
