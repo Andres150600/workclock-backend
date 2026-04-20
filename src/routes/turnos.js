@@ -5,28 +5,31 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js'
 const router = Router()
 
 // GET /turnos
-// Admin: todas las jornadas + empleados asignados a cada una
-// Empleado: solo su jornada asignada (via empleados.turno_id)
+// Admin: todas las jornadas + empleados asignados a cada una (via empleado_turnos)
+// Empleado: sus jornadas asignadas (via empleado_turnos)
 router.get('/', requireAuth, async (req, res) => {
   if (req.user.es_admin) {
-    const [{ data: ts, error }, { data: emps }] = await Promise.all([
+    const [{ data: ts, error }, { data: ets }, { data: emps }] = await Promise.all([
       sb.from('turnos').select('id,nombre,hora_entrada,hora_salida,dias_semana').eq('activo', true).order('created_at', { ascending: false }),
-      sb.from('empleados').select('id,nombre,cargo,turno_id').eq('activo', true).eq('es_admin', false).order('nombre')
+      sb.from('empleado_turnos').select('empleado_id,turno_id'),
+      sb.from('empleados').select('id,nombre,cargo').eq('activo', true).eq('es_admin', false).order('nombre')
     ])
     if (error) return res.status(500).json({ error: error.message })
+    const empsMap = Object.fromEntries((emps || []).map(e => [e.id, e]))
     const result = (ts || []).map(t => ({
       ...t,
-      empleados: (emps || []).filter(e => e.turno_id === t.id)
+      empleados: (ets || []).filter(et => et.turno_id === t.id).map(et => empsMap[et.empleado_id]).filter(Boolean)
     }))
     return res.json(result)
   }
 
-  // Empleado: busca su turno_id en su perfil
-  const { data: emp } = await sb.from('empleados').select('turno_id').eq('id', req.user.id).single()
-  if (!emp?.turno_id) return res.json([])
+  // Empleado: busca sus jornadas via tabla intermedia
+  const { data: ets, error: etsErr } = await sb.from('empleado_turnos').select('turno_id').eq('empleado_id', req.user.id)
+  if (etsErr) return res.status(500).json({ error: etsErr.message })
+  if (!ets?.length) return res.json([])
   const { data, error } = await sb.from('turnos')
     .select('id,nombre,hora_entrada,hora_salida,dias_semana')
-    .eq('id', emp.turno_id)
+    .in('id', ets.map(et => et.turno_id))
     .eq('activo', true)
   if (error) return res.status(500).json({ error: error.message })
   res.json(data || [])
@@ -47,7 +50,7 @@ router.post('/', requireAdmin, async (req, res) => {
 router.patch('/:id', requireAdmin, async (req, res) => {
   const { nombre, hora_entrada, hora_salida, dias_semana } = req.body
   const datos = {}
-  if (nombre)      datos.nombre      = nombre
+  if (nombre)       datos.nombre       = nombre
   if (hora_entrada) datos.hora_entrada = hora_entrada
   if (hora_salida)  datos.hora_salida  = hora_salida
   if (dias_semana)  datos.dias_semana  = dias_semana
