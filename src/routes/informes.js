@@ -11,17 +11,49 @@ router.get('/', requireAdmin, async (req, res) => {
   const desde = `${anio}-${String(mes + 1).padStart(2, '0')}-01`
   const hasta = `${anio}-${String(mes + 1).padStart(2, '0')}-${new Date(anio, mes + 1, 0).getDate()}`
 
-  const [{ data: emps }, { data: fichs }, { data: aus }] = await Promise.all([
+  const [{ data: emps }, { data: fichs }, { data: aus }, { data: ets }, { data: turnosData }] = await Promise.all([
     sb.from('empleados').select('id,nombre,departamento').eq('es_admin', false).eq('activo', true).order('nombre'),
     sb.from('fichajes').select('empleado_id,fecha,entrada,salida').gte('fecha', desde).lte('fecha', hasta),
     sb.from('ausencias').select('empleado_id,estado').gte('desde', desde).lte('hasta', hasta),
+    sb.from('empleado_turnos').select('empleado_id,turno_id'),
+    sb.from('turnos').select('id,hora_entrada,hora_salida,dias_semana').eq('activo', true),
   ])
+
+  // Mapa empleado_id → su primer turno activo
+  const turnoMap = {}
+  ;(ets || []).forEach(et => {
+    if (!turnoMap[et.empleado_id]) {
+      turnoMap[et.empleado_id] = (turnosData || []).find(t => t.id === et.turno_id) || null
+    }
+  })
+
+  function fmtExtras(ms) {
+    const abs = Math.abs(ms)
+    const h = Math.floor(abs / 3600000)
+    const m = Math.floor((abs % 3600000) / 60000)
+    return `${ms >= 0 ? '+' : '-'}${h}h ${m}m`
+  }
 
   const filas = (emps || []).map(emp => {
     const mf = (fichs || []).filter(f => f.empleado_id === emp.id)
     const ma = (aus || []).filter(a => a.empleado_id === emp.id)
     const ms = mf.filter(f => f.salida).reduce((a, f) => a + (new Date(f.salida) - new Date(f.entrada)), 0)
     const horas = `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`
+
+    const empTurno = turnoMap[emp.id]
+    let extrasMs = null
+    if (empTurno?.hora_entrada && empTurno?.hora_salida) {
+      const [eh, em] = empTurno.hora_entrada.split(':').map(Number)
+      const [sh, sm] = empTurno.hora_salida.split(':').map(Number)
+      const turnoMs = ((sh * 60 + sm) - (eh * 60 + em)) * 60000
+      extrasMs = mf.filter(f => f.salida).reduce((acc, f) => {
+        const dow = new Date(f.fecha + 'T12:00:00').getDay()
+        const dowISO = dow === 0 ? 7 : dow
+        if (!(empTurno.dias_semana || [1,2,3,4,5]).includes(dowISO)) return acc
+        return acc + (new Date(f.salida) - new Date(f.entrada)) - turnoMs
+      }, 0)
+    }
+
     return {
       nombre: emp.nombre,
       departamento: emp.departamento,
@@ -30,6 +62,8 @@ router.get('/', requireAdmin, async (req, res) => {
       ausencias_aprobadas: ma.filter(a => a.estado === 'aprobada').length,
       ausencias_pendientes: ma.filter(a => a.estado === 'pendiente').length,
       fichajes: mf,
+      extras: extrasMs !== null ? fmtExtras(extrasMs) : null,
+      extras_ms: extrasMs,
     }
   })
 
