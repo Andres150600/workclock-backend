@@ -3,6 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 
+import { sanitizeBody } from './middleware/sanitize.js'
 import authRoutes from './routes/auth.js'
 import fichajesRoutes from './routes/fichajes.js'
 import ausenciasRoutes from './routes/ausencias.js'
@@ -27,6 +28,7 @@ app.use(cors({
   }
 }))
 app.use(express.json({ limit: '20kb' }))
+app.use(sanitizeBody)
 
 app.use('/auth', authRoutes)
 app.use('/fichajes', fichajesRoutes)
